@@ -11,7 +11,7 @@ using UnityEngine.UI;
 namespace Unity3dAzure.WebSockets {
   public abstract class UnityWebSocket : MonoBehaviour {
     // Web Socket data delegate
-    public delegate void Data (byte[] rawData, string data, Boolean isBinary);
+    public delegate void Data(byte[] rawData, string data, Boolean isBinary);
     public static Data OnData;
 
     protected string WebSocketUri;
@@ -21,72 +21,72 @@ namespace Unity3dAzure.WebSockets {
 
     protected bool isAttached = false;
 
-#region Web Socket methods
+    #region Web Socket methods
 
-    public virtual void Connect () {
-      ConnectWebSocket ();
+    public virtual void Connect() {
+      ConnectWebSocket();
     }
 
-    public virtual void Close () {
-      DisconnectWebSocket ();
+    public virtual void Close() {
+      DisconnectWebSocket();
     }
 
-#endregion
+    #endregion
 
-#region Web Socket handlers
+    #region Web Socket handlers
 
-    protected virtual void OnWebSocketOpen (object sender, EventArgs e) {
-      Debug.Log ("Web socket is open");
+    protected virtual void OnWebSocketOpen(object sender, EventArgs e) {
+      Debug.Log("Web socket is open");
     }
 
-    protected virtual void OnWebSocketClose (object sender, WebSocketCloseEventArgs e) {
-      Debug.Log ("Web socket closed with reason: " + e.Reason);
+    protected virtual void OnWebSocketClose(object sender, WebSocketCloseEventArgs e) {
+      Debug.Log("Web socket closed with reason: " + e.Reason);
       DettachHandlers();
     }
 
-    protected virtual void OnWebSocketMessage (object sender, WebSocketMessageEventArgs e) {
-      Debug.LogFormat ("Web socket {1} message:\n{0}", e.Data, e.IsBinary ? "binary" : "string");
+    protected virtual void OnWebSocketMessage(object sender, WebSocketMessageEventArgs e) {
+      Debug.LogFormat("Web socket {1} message:\n{0}", e.Data, e.IsBinary ? "binary" : "string");
       // Raise web socket data handler event
       if (OnData != null) {
-        OnData (e.RawData, e.Data, e.IsBinary);
+        OnData(e.RawData, e.Data, e.IsBinary);
       }
     }
-    
-    protected virtual void OnWebSocketError (object sender, WebSocketErrorEventArgs e) {
-      Debug.LogError ("Web socket error: " + e.Message);
-      DisconnectWebSocket ();
+
+    protected virtual void OnWebSocketError(object sender, WebSocketErrorEventArgs e) {
+      Debug.LogError("Web socket error: " + e.Message);
+      DisconnectWebSocket();
     }
 
-#endregion
+    #endregion
 
-    public void SendText (string text, Action<bool> callback = null) {
+    public void SendText(string text, Action<bool> callback = null) {
       if (_ws == null || !_ws.IsOpen()) {
         Debug.LogWarning("Web socket is not available to send text message. Try connecting?");
         return;
       }
-      _ws.SendAsync (text, callback);
+      _ws.SendAsync(text, callback);
     }
 
-    public void SendUTF8Text (string text, Action<bool> callback = null) {
-      byte[] data = Encoding.UTF8.GetBytes (text);
-      SendBytes (data, callback);
+    public void SendUTF8Text(string text, Action<bool> callback = null) {
+      byte[] data = Encoding.UTF8.GetBytes(text);
+      SendBytes(data, callback);
     }
 
-    public virtual void SendInputText (InputField inputField) {
-      SendText (inputField.text);
+    public virtual void SendInputText(InputField inputField) {
+      SendText(inputField.text);
     }
 
-    public void SendBytes (byte[] data, Action<bool> callback = null) {
+    public void SendBytes(byte[] data, Action<bool> callback = null) {
       if (_ws == null || !_ws.IsOpen()) {
         Debug.LogWarning("Web socket is not available to send bytes. Try connecting?");
         return;
       }
-      _ws.SendAsync (data, callback);
+      _ws.SendAsync(data, callback);
     }
 
-    protected void ConnectWebSocket () {
-      if (string.IsNullOrEmpty (WebSocketUri)) {
-        Debug.LogError ("WebSocketUri must be set");
+    protected void ConnectWebSocket() {
+      if (string.IsNullOrEmpty(WebSocketUri)) {
+        Debug.LogError("WebSocketUri must be set");
         return;
       }
 
@@ -98,28 +98,28 @@ namespace Unity3dAzure.WebSockets {
           }
         }
 
-        Debug.Log ("Create Web Socket: " + WebSocketUri);
+        //Debug.Log ("Create Web Socket: " + WebSocketUri);
 #if ENABLE_WINMD_SUPPORT
         Debug.Log ("Using UWP Web Socket");
         _ws = new WebSocketUWP();
 #elif UNITY_EDITOR || ENABLE_MONO
-        Debug.Log("Using Mono Web Socket");
+        //Debug.Log("Using Mono Web Socket");
         _ws = new WebSocketMono();
 #endif
         _ws.ConfigureWebSocket(WebSocketUri, customHeaders);
       }
 
       if (!isAttached) {
-        Debug.Log ("Connect Web Socket: " + _ws.Url());
+        Debug.Log("Connect Web Socket: " + _ws.Url());
         AttachHandlers();
-        _ws.ConnectAsync ();
+        _ws.ConnectAsync();
       }
     }
 
-    protected void DisconnectWebSocket () {
+    protected void DisconnectWebSocket() {
       if (_ws != null && isAttached) {
-        Debug.Log ("Disconnect Web Socket");
-        _ws.CloseAsync ();
+        Debug.Log("Disconnect Web Socket");
+        _ws.CloseAsync();
       }
     }
 

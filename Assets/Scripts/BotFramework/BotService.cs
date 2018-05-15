@@ -10,18 +10,21 @@ using System.Text.RegularExpressions;
 
 namespace Unity3dAzure.BotFramework {
   public class BotService : UnityWebSocket {
-        // Bot Service message delegate
-        public delegate void BotMessageReceived(string message);
-        public static BotMessageReceived OnBotMessageReceived;
+    // Bot Service message delegate
+    public delegate void BotMessageReceived(string message);
+    public static BotMessageReceived OnBotMessageReceived;
 
-        public delegate void UserMessageReceived(string message);
-        public static UserMessageReceived OnUserMessageReceived;
+    public delegate void UserMessageReceived(string message);
+    public static UserMessageReceived OnUserMessageReceived;
 
-        // socket delegate
-        public delegate void BotSocketClosed();
-        public static BotSocketClosed OnBotSocketClosed;
+    // socket delegate
+    public delegate void BotSocketOpened();
+    public static BotSocketOpened OnBotSocketOpened;
 
-        [Header("Connect with Direct Line secret key")]
+    public delegate void BotSocketClosed();
+    public static BotSocketClosed OnBotSocketClosed;
+
+    [Header("Connect with Direct Line secret key")]
     [SerializeField]
     private string DirectLineSecretKey; // Direct Line secret key
 
@@ -197,14 +200,13 @@ namespace Unity3dAzure.BotFramework {
         // allow to continue
       }
       if (string.IsNullOrEmpty(message)) {
-        Debug.LogWarning("Error no message");
+        //Debug.LogWarning("Error no message");
         return;
       }
-      if (string.IsNullOrEmpty(ConversationId))
-            {
-                Debug.LogError("Error no conversation id");
-                return;
-            }
+      if (string.IsNullOrEmpty(ConversationId)) {
+        Debug.LogError("Error no conversation id");
+        return;
+      }
       if (!string.IsNullOrEmpty(DirectLineSecretKey)) {
         Debug.Log("Send message using secret:" + message + " ConversationId:" + ConversationId);
         StartCoroutine(PostMessage(DirectLineSecretKey, message, ConversationId, UserName));
@@ -258,123 +260,106 @@ namespace Unity3dAzure.BotFramework {
 
     protected override void OnWebSocketOpen(object sender, EventArgs e) {
       Debug.Log("Bot web socket is open");
+      if (OnBotSocketOpened != null) {
+        OnBotSocketOpened();
+      }
     }
 
     protected override void OnWebSocketClose(object sender, WebSocketCloseEventArgs e) {
-      Debug.Log("Bot web socket closed with reason: " + e.Reason );
+      Debug.Log("Bot web socket closed with reason: " + e.Reason);
       DettachHandlers();
-            if (OnBotSocketClosed != null)
-            {
-                OnBotSocketClosed();
-            }
+      if (OnBotSocketClosed != null) {
+        OnBotSocketClosed();
+      }
     }
 
     protected override void OnWebSocketMessage(object sender, WebSocketMessageEventArgs e) {
       Debug.LogFormat("Bot web socket {1} message:\n{0}", e.Data, e.IsBinary ? "binary" : "string");
 
-            // ignore empty messages
-            if (String.IsNullOrEmpty(e.Data))
-            {
-                return;
-            }
+      // ignore empty messages
+      if (String.IsNullOrEmpty(e.Data)) {
+        return;
+      }
 
-            // parse activities message
-            MessageActivities response = ParseMessageActivities(e.Data);
-            if (response.activities == null || response.activities.Length < 1)
-            {
-                Debug.LogWarning("No activities message found:\n" + e.Data);
-                return;
-            }
+      // parse activities message
+      MessageActivities response = ParseMessageActivities(e.Data);
+      if (response.activities == null || response.activities.Length < 1) {
+        Debug.LogWarning("No activities message found:\n" + e.Data);
+        return;
+      }
 
-            // Update watermark id
-            Watermark = response.watermark;
-            Debug.Log("Watermark id:" + Watermark);
+      // Update watermark id
+      Watermark = response.watermark;
+      Debug.Log("Watermark id:" + Watermark);
 
-            // Handle bot is typing status message - type: "typing"
-            if (String.IsNullOrEmpty(response.activities[0].text) && string.Equals(response.activities[0].type, "typing"))
-            {
-                Debug.Log("Bot is typing...");
-                RaiseOnBotMessageReceived("Thinking...");
-                return;
-            }
+      // Handle bot is typing status message - type: "typing"
+      if (String.IsNullOrEmpty(response.activities[0].text) && string.Equals(response.activities[0].type, "typing")) {
+        Debug.Log("Bot is typing...");
+        RaiseOnBotMessageReceived("Thinking...");
+        return;
+      }
 
-            if (response.activities.Length > 1)
-            {
-                Debug.LogWarning("Handle case if more than 1 activity is received.");
-            }
+      if (response.activities.Length > 1) {
+        Debug.LogWarning("Handle case if more than 1 activity is received.");
+      }
 
-            MessageActivity messageActivity = response.activities[0];
+      MessageActivity messageActivity = response.activities[0];
 
-            // decide what to do depending on message path type
-            if (String.IsNullOrEmpty(messageActivity.inputHint))
-            {
-                // user
-                RaiseOnUserMessageReceived(messageActivity);
-            }
-            else if (!String.IsNullOrEmpty(messageActivity.inputHint))
-            {
-                // bot
-                RaiseOnBotMessageReceived(messageActivity);
-            }
-            else
-            {
-                Debug.LogWarning("Unhandled message type: " + messageActivity.inputHint + " message: " + messageActivity.text);
-            }
+      // decide what to do depending on message path type
+      if (String.IsNullOrEmpty(messageActivity.inputHint)) {
+        // user
+        RaiseOnUserMessageReceived(messageActivity);
+      } else if (!String.IsNullOrEmpty(messageActivity.inputHint)) {
+        // bot
+        RaiseOnBotMessageReceived(messageActivity);
+      } else {
+        Debug.LogWarning("Unhandled message type: " + messageActivity.inputHint + " message: " + messageActivity.text);
+      }
     }
 
 
-        protected override void OnWebSocketError(object sender, WebSocketErrorEventArgs e) {
+    protected override void OnWebSocketError(object sender, WebSocketErrorEventArgs e) {
       Debug.LogError("Bot web socket error: " + e.Message);
       DisconnectWebSocket();
     }
 
-        #endregion
+    #endregion
 
-        #region Parse JSON body helpers
+    #region Parse JSON body helpers
 
-        public static MessageActivities ParseMessageActivities(string json)
-        {
-            try
-            {
-                return JsonUtility.FromJson<MessageActivities>(json);
-            }
-            catch (ArgumentException exception)
-            {
-                Debug.LogWarningFormat("Failed to parse bot message. Reason: {0} \n'{1}'", exception.Message, json);
-                return null;
-            }
-        }
-
-        #endregion
-
-        #region Events
-
-        private void RaiseOnBotMessageReceived(MessageActivity messageActivity)
-        {
-            if (OnBotMessageReceived != null)
-            {
-                OnBotMessageReceived(messageActivity.text);
-            }
-        }
-
-        private void RaiseOnBotMessageReceived(string message)
-        {
-            if (OnBotMessageReceived != null)
-            {
-                OnBotMessageReceived(message);
-            }
-        }
-
-        private void RaiseOnUserMessageReceived(MessageActivity messageActivity)
-        {
-            if (OnUserMessageReceived != null)
-            {
-                OnUserMessageReceived(messageActivity.text);
-            }
-        }
-
-
-        #endregion
-
+    public static MessageActivities ParseMessageActivities(string json) {
+      try {
+        return JsonUtility.FromJson<MessageActivities>(json);
+      } catch (ArgumentException exception) {
+        Debug.LogWarningFormat("Failed to parse bot message. Reason: {0} \n'{1}'", exception.Message, json);
+        return null;
+      }
     }
+
+    #endregion
+
+    #region Events
+
+    private void RaiseOnBotMessageReceived(MessageActivity messageActivity) {
+      if (OnBotMessageReceived != null) {
+        OnBotMessageReceived(messageActivity.text);
+      }
+    }
+
+    private void RaiseOnBotMessageReceived(string message) {
+      if (OnBotMessageReceived != null) {
+        OnBotMessageReceived(message);
+      }
+    }
+
+    private void RaiseOnUserMessageReceived(MessageActivity messageActivity) {
+      if (OnUserMessageReceived != null) {
+        OnUserMessageReceived(messageActivity.text);
+      }
+    }
+
+
+    #endregion
+
+  }
 }
